@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8"?><project name="NonEquivalenceChecker" default="checkNonEquivalence" basedir=".">
+ 	<property file="eqCheck.properties"/>
+
+<!-- :::::::::::::::::::::::::::::::::::::::: Directories :::::::::::::::::::::::::::::::::::::::: -->
+
+	<target name="createOutputFolderUser" if="outputFolder">
+		<mkdir dir="${outputFolder}"/>
+
+		<exec executable="/bin/bash" resultproperty="folderNumber" failonerror="false">
+			<arg value="${script.createOutputFolderBuild}"/>
+			<arg value="${outputFolder}"/>
+			<arg value="${dir.out}"/>
+		</exec>
+
+		<property name="indexedOutputFolder" location="${outputFolder}/${dir.out}-${folderNumber}"/>
+
+		<echo message="Outputting to '${indexedOutputFolder}'."/>
+     </target>
+
+	<target name="createOutputFolderBasedir" unless="outputFolder">
+		<exec executable="/bin/bash" resultproperty="folderNumber" failonerror="false">
+			<arg value="${script.createOutputFolderBuild}"/>
+			<arg value="${basedir}"/>
+			<arg value="${dir.out}"/>
+		</exec>
+
+		<property name="indexedOutputFolder" value="${basedir}/${dir.out}-${folderNumber}"/>
+
+		<echo message="Outputting to '${indexedOutputFolder}'."/>
+     </target>
+
+     <target name="createOutputFolder" depends="createOutputFolderUser, createOutputFolderBasedir"/>
+
+     <target name="startLogger">
+     	<script language="javascript">
+     		var start = new Date();
+
+			project.setProperty('startTimeReadable', start.getFullYear() + "-" + (start.getMonth() + 1) + "-" + start.getDate() + " " + start.getHours() + ":" + start.getMinutes() + ":" + start.getSeconds() + ":" + start.getMilliseconds());
+			project.setProperty('startTime', start.getTime());
+		</script>
+
+		<record name="${indexedOutputFolder}/output.log" action="start"/>
+		<echo>Start time: ${startTimeReadable}</echo>
+	</target>
+
+<!-- :::::::::::::::::::::::::::::::::::::::: Input Checking :::::::::::::::::::::::::::::::::::::::: -->
+
+	<target name="checkAntVersion">
+		<fail message="At least Ant ${ant.requiredVersion} must be installed!">
+			<condition>
+				<not>
+					<antversion atleast="${ant.requiredVersion}"/>
+				</not>
+			</condition>
+		</fail>
+
+		<echo>Ant version '${ant.requiredVersion}' is required.</echo>
+		<echo>Ant version '${ant.version}' is installed.</echo>
+	</target>
+
+	<target name="checkInputParameters">
+		<fail message="Original file must be given!" unless="originalFile"/>
+
+		<fail message="Either transformed file or transformation tool must be given!">
+			<condition>
+				<not>
+		            <xor>
+			            <isset property="transformedFile"/>
+			            <isset property="transformationTool"/>
+		            </xor>
+	            </not>
+	        </condition>
+        </fail>
+	</target>
+
+	<target name="checkOriginalFile" depends="checkInputParameters" if="originalFile">
+		<basename property="originalFileBasenameWithExtension" file="${originalFile}"/>
+		<property name="originalFileAbsolutePath" value="${indexedOutputFolder}/${prefix.original}${originalFileBasenameWithExtension}"/>
+		<basename property="originalFileBasename" file="${originalFileAbsolutePath}" suffix=".c"/>
+
+		<property name="transformedFileAbsolutePath" value="${indexedOutputFolder}/${prefix.transformed}${originalFileBasenameWithExtension}"/>
+		<basename property="transformedFileBasename" file="${transformedFileAbsolutePath}" suffix=".c"/>
+
+		<fail message="The original file does not exist or is not a C file!">
+			<condition>
+	            <not>
+	            	<and>
+			            <resourceexists>
+							<file file="${originalFile}"/>
+						</resourceexists>
+			            <matches pattern="^(.+)\.c$" string="${originalFileBasenameWithExtension}"/>
+		            </and>
+	            </not>
+	        </condition>
+        </fail>
+
+		<copy file="${originalFile}" tofile="${originalFileAbsolutePath}"/>
+		<echo>Using original file: '${originalFileAbsolutePath}'</echo>
+
+		<exec executable="${clang.cmd}" dir="${indexedOutputFolder}" failonerror="true">
+			<arg value="-emit-llvm"/>
+			<arg value="-c"/>
+			<arg value="-g"/>
+			<arg value="${originalFileAbsolutePath}"/>
+		</exec>
+	</target>
+
+	<target name="checkTransformedFile" depends="checkInputParameters" if="transformedFile">
+		<fail message="The transformed file does not exist or is not a C file!">
+			<condition>
+	            <not>
+	            	<and>
+			            <resourceexists>
+			                <file file="${transformedFile}"/>
+			            </resourceexists>
+			            <matches pattern="^(.+)\.c$" string="${transformedFile}"/>
+		            </and>
+	            </not>
+	        </condition>
+        </fail>
+
+		<copy file="${transformedFile}" tofile="${transformedFileAbsolutePath}"/>
+		<echo>Using transformed file: '${transformedFileAbsolutePath}'</echo>
+	</target>
+
+	<target name="checkTransformationTool" depends="checkInputParameters" if="transformationTool">
+		<echo>Using transformation tool: '${transformationTool}'</echo>
+		<copy file="${originalFileAbsolutePath}" tofile="${transformedFileAbsolutePath}"/>
+	</target>
+
+	<target name="checkInput" depends="checkAntVersion, createOutputFolder, startLogger, checkInputParameters, checkOriginalFile, checkTransformedFile, checkTransformationTool"/>
+
+<!-- :::::::::::::::::::::::::::::::::::::::: ToolChain :::::::::::::::::::::::::::::::::::::::: -->
+
+	<target name="renameOriginalMethods">
+		<exec executable="${dir.build}/FunctionRewriter" failonerror="true">
+			<arg value="${originalFileAbsolutePath}"/>
+			<arg value="${originalFileAbsolutePath}"/>
+			<arg value="${prefix.original}"/>
+		</exec>
+	</target>
+
+	<target name="renameTransformedMethods">
+		<exec executable="${dir.build}/FunctionRewriter" failonerror="true">
+			<arg value="${transformedFileAbsolutePath}"/>
+			<arg value="${transformedFileAbsolutePath}"/>
+			<arg value="${prefix.transformed}"/>
+		</exec>
+	</target>
+
+	<target name="renameMethods" depends="checkInput, renameOriginalMethods, renameTransformedMethods"/>
+
+	<target name="extractStructsHeader">
+		<property name="structsHeaderFileAbsolutePath" value="${indexedOutputFolder}/Structs.h"/>
+		<basename property="structsHeaderFileBasename" file="${structsHeaderFileAbsolutePath}" suffix=".c"/>
+
+		<exec executable="${dir.build}/StructHeaderWriter" failonerror="true">
+			<arg value="${originalFileAbsolutePath}"/>
+			<arg value="${structsHeaderFileAbsolutePath}"/>
+		</exec>
+	</target>
+
+	<target name="extractOriginalHeader">
+		<basename property="originalHeaderFileBasename" file="${originalFileAbsolutePath}" suffix=".c"/>
+		<property name="originalHeaderFileAbsolutePath" value="${indexedOutputFolder}/${originalHeaderFileBasename}.h"/>
+
+		<exec executable="${dir.build}/HeaderWriter" failonerror="true">
+			<arg value="${originalFileAbsolutePath}"/>
+			<arg value="${originalHeaderFileAbsolutePath}"/>
+			<arg value="${annotation}"/>
+			<arg value="${structsHeaderFileBasename}"/>
+		</exec>
+	</target>
+
+	<target name="extractTransformedHeader">
+		<basename property="transformedHeaderFileBasename" file="${transformedFileAbsolutePath}" suffix=".c"/>
+		<property name="transformedHeaderFileAbsolutePath" value="${indexedOutputFolder}/${transformedHeaderFileBasename}.h"/>
+
+		<exec executable="${dir.build}/HeaderWriter" failonerror="true">
+			<arg value="${transformedFileAbsolutePath}"/>
+			<arg value="${transformedHeaderFileAbsolutePath}"/>
+			<arg value="${annotation}"/>
+			<arg value="${structsHeaderFileBasename}"/>
+		</exec>
+	</target>
+
+	<target name="extractHeaders" depends="renameMethods, extractStructsHeader, extractOriginalHeader, extractTransformedHeader"/>
+
+	<target name="checkHeaders" depends="extractHeaders">
+		<exec executable="${dir.build}/HeaderChecker" failonerror="true">
+			<arg value="${originalHeaderFileAbsolutePath}"/>
+			<arg value="${prefix.original}"/>
+			<arg value="${transformedHeaderFileAbsolutePath}"/>
+			<arg value="${prefix.transformed}"/>
+		</exec>
+	</target>
+
+	<target name="transform" depends="checkHeaders" if="transformationTool">
+		<copy file="${transformedFileAbsolutePath}" tofile="${transformedFileAbsolutePath}.c"/>
+
+		<exec executable="${dir.build}/TransformationRunner" failonerror="true">
+			<arg value="${transformationTool}"/>
+			<arg value="${prefix.transformed}"/>
+			<arg value="${transformedFileAbsolutePath}.c"/>
+			<arg value="${indexedOutputFolder}/${transformedFileBasename}"/>
+		</exec>
+
+		<delete file="${transformedFileAbsolutePath}.c"/>
+	</target>
+
+	<target name="renameConflictingMethods" depends="transform" if="transformationTool">
+		<property name="conflictingMethods" value="main"/>
+
+		<exec executable="${dir.build}/FunctionRewriter" failonerror="true">
+			<arg value="${transformedFileAbsolutePath}"/>
+			<arg value="${transformedFileAbsolutePath}"/>
+			<arg value="${prefix.conflictfree}"/>
+			<arg value="${conflictingMethods}"/>
+		</exec>
+	</target>
+
+	<target name="generateMain" depends="renameConflictingMethods">
+		<property name="klee.headerFileOutput" value="${indexedOutputFolder}/klee/klee.h"/>
+		<copy file="${klee.headerFileBuild}" tofile="${klee.headerFileOutput}"/>
+
+		<property name="kleeMainFileAbsolutePath" value="${indexedOutputFolder}/KleeMain.c"/>
+		<basename property="kleeMainFileBasename" file="${kleeMainFileAbsolutePath}" suffix=".c"/>
+
+		<exec executable="${dir.build}/MainGenerator" failonerror="true">
+			<arg value="${originalFileAbsolutePath}"/>
+			<arg value="${annotation}"/>
+			<arg value="${structsHeaderFileAbsolutePath}"/>
+			<arg value="${originalHeaderFileAbsolutePath}"/>
+			<arg value="${transformedHeaderFileAbsolutePath}"/>
+			<arg value="${prefix.original}"/>
+			<arg value="${prefix.transformed}"/>
+			<arg value="${kleeMainFileAbsolutePath}"/>
+		</exec>
+	</target>
+
+	<target name="compileToBitcode" depends="generateMain">
+		<exec executable="${clang.cmd}" dir="${indexedOutputFolder}" failonerror="true">
+			<arg value="-emit-llvm"/>
+			<arg value="-c"/>
+			<arg value="-g"/>
+			<arg value="${kleeMainFileAbsolutePath}"/>
+			<arg value="${originalFileAbsolutePath}"/>
+			<arg value="${transformedFileAbsolutePath}"/>
+		</exec>
+	</target>
+
+	<target name="link" depends="compileToBitcode">
+		<property name="linkedProgram" value="${indexedOutputFolder}/LinkedProgram.bc"/>
+
+		<exec executable="llvm-link" dir="${indexedOutputFolder}" failonerror="true">
+			<arg value="-v"/>
+			<arg value="-o=${linkedProgram}"/>
+			<arg value="${kleeMainFileBasename}.bc"/>
+			<arg value="${originalFileBasename}.bc"/>
+			<arg value="${transformedFileBasename}.bc"/>
+		</exec>
+	</target>
+
+	<target name="runKlee" depends="link">
+		<exec executable="/bin/bash" failonerror="true">
+			<arg value="${klee.runScriptBuild}"/>
+			<arg value="klee"/>
+			<arg value="${klee.parameters}"/>
+			<arg value="${linkedProgram}"/>
+			<arg value="${indexedOutputFolder}/klee-last"/>
+		</exec>
+	</target>
+
+	<target name="analyzeKleeResults" depends="runKlee">
+		<script language="javascript">
+			var end = new Date();
+			var buildTime = new Date(end.getTime() - startTime);
+
+			project.setProperty('endTimeReadable', end.getFullYear() + "-" + (end.getMonth() + 1) + "-" + end.getDate() + " " + end.getHours() + ":" + end.getMinutes() + ":" + end.getSeconds() + ":" + end.getMilliseconds());
+			project.setProperty('elapsedTime', (buildTime.getHours() - 1) + "h " + buildTime.getMinutes() + "m " + buildTime.getSeconds() + "s " + buildTime.getMilliseconds() + "ms");
+		</script>
+
+		<echo>End time: ${endTimeReadable}</echo>
+		<echo>Elapsed time: ${elapsedTime}</echo>
+
+		<echo>${line.separator}</echo>
+
+        <exec executable="${klee.stats}" failonerror="true">
+			<arg value="${indexedOutputFolder}/klee-last"/>
+		</exec>
+
+        <echo>${line.separator}</echo>
+
+		<exec executable="${dir.build}/KleeAnalyzer" failonerror="true">
+			<arg value="${indexedOutputFolder}/klee-last"/>
+			<arg value="${indexedOutputFolder}"/>
+		</exec>
+	</target>
+
+	<target name="checkNonEquivalence" depends="analyzeKleeResults"/>
+</project>

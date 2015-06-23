@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?><project name="BuildNonEquivalenceChecker" default="clean-build" basedir=".">
+	<property file="eqCheck.properties"/>
+
+<!-- :::::::::::::::::::::::::::::::::::::::: Directories :::::::::::::::::::::::::::::::::::::::: -->
+
+	<target name="init">
+		<mkdir dir="${dir.build}"/>
+	</target>
+
+	<target name="clean">
+		<delete dir="${dir.build}"/>
+	</target>
+
+<!-- :::::::::::::::::::::::::::::::::::::::: Building :::::::::::::::::::::::::::::::::::::::: -->
+
+	<target name="buildFunctionRewriter">
+		<exec executable="${clang.cmd}" dir="${dir.src}" failonerror="true">
+			<arg value="-fsanitize=address"/>
+			<arg value="-I${clang.includeHeader}"/>
+			<arg value="-l${clang.libclang}"/>
+			<arg value="-o${dir.build}/FunctionRewriter"/>
+			<arg value="Array.c"/>
+			<arg value="ClangHelper.c"/>
+			<arg value="CodeGenerator.c"/>
+			<arg value="File.c"/>
+			<arg value="Function.c"/>
+			<arg value="FunctionExtractor.c"/>
+			<arg value="LibraryHelper.c"/>
+			<arg value="Parameter.c"/>
+			<arg value="String.c"/>
+			<arg value="Structure.c"/>
+			<arg value="Tokenizer.c"/>
+			<arg value="FunctionRewriter.c"/>
+		</exec>
+	</target>
+
+	<target name="buildStructHeaderWriter">
+		<exec executable="${clang.cmd}" dir="${dir.src}" failonerror="true">
+			<arg value="-fsanitize=address"/>
+			<arg value="-I${clang.includeHeader}"/>
+			<arg value="-l${clang.libclang}"/>
+			<arg value="-o${dir.build}/StructHeaderWriter"/>
+			<arg value="Array.c"/>
+			<arg value="ClangHelper.c"/>
+			<arg value="CodeGenerator.c"/>
+			<arg value="File.c"/>
+			<arg value="Function.c"/>
+			<arg value="FunctionExtractor.c"/>
+			<arg value="LibraryHelper.c"/>
+			<arg value="Parameter.c"/>
+			<arg value="String.c"/>
+			<arg value="Structure.c"/>
+			<arg value="StructExtractor.c"/>
+			<arg value="Tokenizer.c"/>
+			<arg value="StructHeaderWriter.c"/>
+		</exec>
+	</target>
+
+	<target name="buildHeaderWriter">
+		<exec executable="${clang.cmd}" dir="${dir.src}" failonerror="true">
+			<arg value="-fsanitize=address"/>
+			<arg value="-I${clang.includeHeader}"/>
+			<arg value="-l${clang.libclang}"/>
+			<arg value="-o${dir.build}/HeaderWriter"/>
+			<arg value="Array.c"/>
+			<arg value="ClangHelper.c"/>
+			<arg value="CodeGenerator.c"/>
+			<arg value="File.c"/>
+			<arg value="Function.c"/>
+			<arg value="FunctionExtractor.c"/>
+			<arg value="LibraryHelper.c"/>
+			<arg value="Parameter.c"/>
+			<arg value="String.c"/>
+			<arg value="Structure.c"/>
+			<arg value="Tokenizer.c"/>
+			<arg value="HeaderWriter.c"/>
+		</exec>
+	</target>
+
+	<target name="buildHeaderChecker">
+		<exec executable="${clang.cmd}" dir="${dir.src}" failonerror="true">
+			<arg value="-fsanitize=address"/>
+			<arg value="-I${clang.includeHeader}"/>
+			<arg value="-l${clang.libclang}"/>
+			<arg value="-o${dir.build}/HeaderChecker"/>
+			<arg value="Array.c"/>
+			<arg value="ClangHelper.c"/>
+			<arg value="CodeGenerator.c"/>
+			<arg value="File.c"/>
+			<arg value="Function.c"/>
+			<arg value="FunctionExtractor.c"/>
+			<arg value="LibraryHelper.c"/>
+			<arg value="Parameter.c"/>
+			<arg value="String.c"/>
+			<arg value="Structure.c"/>
+			<arg value="Tokenizer.c"/>
+			<arg value="HeaderChecker.c"/>
+		</exec>
+	</target>
+
+	<target name="buildTransformationRunner">
+		<exec executable="${clang.cmd}" dir="${dir.src}" failonerror="true">
+			<arg value="-fsanitize=address"/>
+			<arg value="-o${dir.build}/TransformationRunner"/>
+			<arg value="LibraryHelper.c"/>
+			<arg value="String.c"/>
+			<arg value="TransformationRunner.c"/>
+		</exec>
+	</target>
+
+	<target name="buildMainGenerator">
+		<exec executable="${clang.cmd}" dir="${dir.src}" failonerror="true">
+			<arg value="-fsanitize=address"/>
+			<arg value="-I${clang.includeHeader}"/>
+			<arg value="-l${clang.libclang}"/>
+			<arg value="-o${dir.build}/MainGenerator"/>
+			<arg value="Array.c"/>
+			<arg value="ClangHelper.c"/>
+			<arg value="CodeGenerator.c"/>
+			<arg value="File.c"/>
+			<arg value="Function.c"/>
+			<arg value="FunctionExtractor.c"/>
+			<arg value="LibraryHelper.c"/>
+			<arg value="Parameter.c"/>
+			<arg value="String.c"/>
+			<arg value="Structure.c"/>
+			<arg value="StructExtractor.c"/>
+			<arg value="Tokenizer.c"/>
+			<arg value="MainGenerator.c"/>
+		</exec>
+	</target>
+
+	<target name="buildKleeAnalyzer">
+		<exec executable="${clang.cmd}" dir="${dir.src}" failonerror="true">
+			<arg value="-fsanitize=address"/>
+			<arg value="-o${dir.build}/KleeAnalyzer"/>
+			<arg value="File.c"/>
+			<arg value="LibraryHelper.c"/>
+			<arg value="String.c"/>
+			<arg value="KleeAnalyzer.c"/>
+		</exec>
+	</target>
+	
+	<target name="copyScriptFiles">
+		<copy file="${klee.runScriptSource}" tofile="${klee.runScriptBuild}"/>
+		<copy file="${script.createOutputFolderSource}" tofile="${script.createOutputFolderBuild}"/>
+	</target>
+
+	<target name="copyKleeHeader">
+		<copy file="${klee.headerFileSource}" tofile="${klee.headerFileBuild}"/>
+	</target>
+
+	<target name="build" depends="init, buildFunctionRewriter, buildStructHeaderWriter, buildHeaderWriter, buildHeaderChecker, buildTransformationRunner, buildMainGenerator, buildKleeAnalyzer, copyScriptFiles, copyKleeHeader"/>
+
+	<target name="clean-build" depends="clean, build"/>
+</project>
