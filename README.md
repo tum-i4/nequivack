@@ -28,19 +28,23 @@ The Non-Equivalence Checker has some software requirements. They are listed belo
 ## Building
 
 First, open a Terminal and change to the directory `nequivack`.
+
 Simply run `ant`. This is sufficient to build the tool.
+
 
 ## Running
 
 First, open a Terminal and change to the directory `nequivack`.
+
 For running, you can decide between **(A)** passing an already transformed file or **(B)** a command to perform a transformation with a tool. You always need to provide an original file. Independent from the option you choose, you have to set the buildfile to `run.xml`. Additionally, you can define an output folder that will gather all the output from the tool.
+
 You have to annotate the input files before passing them to the tool. You must at least place a comment `// @klee` in the line above the function definition of the function, that should be checked for equivalence by the tool. Otherwise, the tool will not recognize the function.
 
 **(A)** Using an already transformed file
-ant -buildfile run.xml -DoriginalFile=path/to/original/file.c -DtransformedFile=path/to/transformed/file.c [-DoutputFolder=folder]
+`ant -buildfile run.xml -DoriginalFile=path/to/original/file.c -DtransformedFile=path/to/transformed/file.c [-DoutputFolder=folder]`
                                                                                                             
 **(B)** Using command to perform a transformation with a tool
-ant -buildfile run.xml -DoriginalFile=path/to/original/file.c -DtransformationTool="command" [-DoutputFolder=folder]
+`ant -buildfile run.xml -DoriginalFile=path/to/original/file.c -DtransformationTool="command" [-DoutputFolder=folder]`
 
 Within the command, you can use three different placeholders:
 * `%PRE` transformation prefix (must be in front of method names)
